@@ -1,7 +1,17 @@
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f6f8fa;
+  background: linear-gradient(135deg, #f7f9fc 0%, #eef4ff 100%);
+  color: #1f2937;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.2);
+  color: #111827;
 }
 
 #root {
@@ -18,5 +28,6 @@ a:hover {
 }
 
 .leaflet-container {
-  border-radius: 12px;
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }

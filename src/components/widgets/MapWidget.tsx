@@ -14,11 +14,12 @@ const defaultIcon = L.icon({
 
 type MapWidgetProps = {
   coordinates: [number, number];
+  status?: 'Live' | 'Saved' | 'Unavailable';
 };
 
-export default function MapWidget({ coordinates }: MapWidgetProps) {
+export default function MapWidget({ coordinates, status = 'Saved' }: MapWidgetProps) {
   return (
-    <div style={{ minHeight: 360, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ minHeight: 360, borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}>
       <MapContainer center={coordinates} zoom={14} style={{ height: '100%', minHeight: 360 }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -30,8 +31,8 @@ export default function MapWidget({ coordinates }: MapWidgetProps) {
           </Popup>
         </Marker>
       </MapContainer>
-      <Typography sx={{ mt: 1, fontSize: '0.95rem', textAlign: 'center' }}>
-        Mock GPS coordinates can be updated in the simulation settings.
+      <Typography sx={{ mt: 1, fontSize: '0.95rem', textAlign: 'center', color: 'text.secondary' }}>
+        {status === 'Live' ? 'Live GPS location update active.' : status === 'Unavailable' ? 'Location access is unavailable, showing the last known position.' : 'Showing your saved location for the current session.'}
       </Typography>
     </div>
   );
