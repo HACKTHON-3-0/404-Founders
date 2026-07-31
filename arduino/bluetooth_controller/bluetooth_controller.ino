@@ -2,8 +2,8 @@ const int ENA = 5;
 const int IN1 = 7;
 const int IN2 = 8;
 
-const int IN3 = 11;
-const int IN4 = 12;
+const int IN3 = 9;
+const int IN4 = 10;
 const int ENB = 6;
 
 const int TRIG_PIN = A0;
@@ -14,11 +14,11 @@ const float EMERGENCY_DISTANCE = 8;
 
 const unsigned long BT_TIMEOUT = 1000;
 
-const int MIN_SPEED = 70;
-const int MAX_SPEED = 170;
+const int MIN_SPEED = 50;
+const int MAX_SPEED = 130;
 
 char currentCommand = 'S';
-int currentSpeed = 120;
+int currentSpeed = 80;
 
 unsigned long lastCommandTime = 0;
  
