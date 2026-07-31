@@ -1,6 +1,7 @@
 const int ENA = 5;
 const int IN1 = 7;
 const int IN2 = 8;
+
 const int IN3 = 11;
 const int IN4 = 12;
 const int ENB = 6;
@@ -8,57 +9,86 @@ const int ENB = 6;
 const int TRIG_PIN = A0;
 const int ECHO_PIN = A1;
 
-const float SAFE_DISTANCE_CM = 15.0;
-const unsigned long BT_TIMEOUT_MS = 1000;
+const float SAFE_DISTANCE = 20.0;     
+const float EMERGENCY_DISTANCE = 8;  
 
-const int MIN_RUN_SPEED = 90;
-const int MAX_RUN_SPEED = 255;
+const unsigned long BT_TIMEOUT = 1000;
+
+const int MIN_SPEED = 70;
+const int MAX_SPEED = 170;
 
 char currentCommand = 'S';
-int currentSpeed = 180;
-unsigned long lastCommandTime = 0;
+int currentSpeed = 120;
 
+unsigned long lastCommandTime = 0;
+ 
 void setup() {
-  Serial.begin(9600);   // HC-05 uses hardware serial (D0/D1)
+
+  Serial.begin(9600);
 
   pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
-  pinMode(ENB, OUTPUT);
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 
   stopCar();
 }
-
+ 
 void loop() {
-  readBluetoothIfAvailable();
 
-  bool linkActive = (millis() - lastCommandTime) < BT_TIMEOUT_MS;
+  readBluetooth();
 
-  char commandToRun = linkActive ? currentCommand : 'S';
-  int speedToRun = linkActive ? currentSpeed : 0;
+  bool connected =
+      (millis() - lastCommandTime) < BT_TIMEOUT;
 
-  float distance = readDistanceCM();
+  char cmd = connected ? currentCommand : 'S';
 
-  if (commandToRun == 'F' &&
-      distance > 0 &&
-      distance < SAFE_DISTANCE_CM) {
-    commandToRun = 'S';
+  int spd = connected ? currentSpeed : 0;
+
+  float distance = readDistance();
+
+  // Emergency Stop
+  if (distance < EMERGENCY_DISTANCE) {
+
+    stopCar();
+    return;
   }
 
-  executeCommand(commandToRun, speedToRun);
+  // Stop only forward motions
+  if ((cmd == 'F' ||
+       cmd == 'G' ||
+       cmd == 'I') &&
+      distance < SAFE_DISTANCE) {
+
+    stopCar();
+    return;
+  }
+
+  execute(cmd, spd);
 }
 
-void readBluetoothIfAvailable() {
+ 
+void readBluetooth() {
+
   while (Serial.available()) {
+
     char c = Serial.read();
 
-    if (c == 'F' || c == 'B' || c == 'L' ||
-        c == 'R' || c == 'S') {
+    if (c == 'F' ||
+        c == 'B' ||
+        c == 'L' ||
+        c == 'R' ||
+        c == 'G' ||
+        c == 'I' ||
+        c == 'H' ||
+        c == 'J' ||
+        c == 'S') {
 
       currentCommand = c;
       lastCommandTime = millis();
@@ -67,46 +97,66 @@ void readBluetoothIfAvailable() {
     else if (c >= '0' && c <= '9') {
 
       currentSpeed = map(
-        c - '0',
-        0,
-        9,
-        MIN_RUN_SPEED,
-        MAX_RUN_SPEED
-      );
+          c - '0',
+          0,
+          9,
+          MIN_SPEED,
+          MAX_SPEED);
 
       lastCommandTime = millis();
     }
   }
 }
 
-float readDistanceCM() {
+ 
+float readDistance() {
 
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
+  float sum = 0;
+  int valid = 0;
 
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
+  for (int i = 0; i < 3; i++) {
 
-  digitalWrite(TRIG_PIN, LOW);
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
 
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
 
-  if (duration == 0)
-    return -1;
+    digitalWrite(TRIG_PIN, LOW);
 
-  return duration * 0.0343 / 2.0;
+    long duration = pulseIn(ECHO_PIN, HIGH, 25000);
+
+    if (duration > 0) {
+
+      float d = duration * 0.0343 / 2.0;
+
+      if (d > 2 && d < 400) {
+
+        sum += d;
+        valid++;
+      }
+    }
+
+    delay(3);
+  }
+
+  if (valid == 0)
+    return 999;
+
+  return sum / valid;
 }
 
-void executeCommand(char cmd, int speed) {
+ 
+void execute(char cmd, int speed) {
 
   switch (cmd) {
 
     case 'F':
-      moveForward(speed);
+      forward(speed);
       break;
 
     case 'B':
-      moveBackward(speed);
+      backward(speed);
       break;
 
     case 'L':
@@ -117,13 +167,29 @@ void executeCommand(char cmd, int speed) {
       turnRight(speed);
       break;
 
+    case 'G':
+      forwardLeft(speed);
+      break;
+
+    case 'I':
+      forwardRight(speed);
+      break;
+
+    case 'H':
+      backwardLeft(speed);
+      break;
+
+    case 'J':
+      backwardRight(speed);
+      break;
+
     default:
       stopCar();
-      break;
   }
 }
 
-void moveForward(int speed) {
+ 
+void forward(int s) {
 
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
@@ -131,11 +197,12 @@ void moveForward(int speed) {
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
 
-  analogWrite(ENA, speed);
-  analogWrite(ENB, speed);
+  analogWrite(ENA, s);
+  analogWrite(ENB, s);
 }
 
-void moveBackward(int speed) {
+ 
+void backward(int s) {
 
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
@@ -143,42 +210,99 @@ void moveBackward(int speed) {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
 
-  analogWrite(ENA, speed);
-  analogWrite(ENB, speed);
+  analogWrite(ENA, s);
+  analogWrite(ENB, s);
 }
 
-void turnLeft(int speed) {
-
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-
-  analogWrite(ENA, speed);
-  analogWrite(ENB, speed);
-}
-
-void turnRight(int speed) {
+ 
+void forwardLeft(int s) {
 
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
 
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+
+  analogWrite(ENA, s * 0.45);
+  analogWrite(ENB, s);
+}
+
+ 
+void forwardRight(int s) {
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+
+  analogWrite(ENA, s);
+  analogWrite(ENB, s * 0.45);
+}
+
+ 
+void backwardLeft(int s) {
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
 
-  analogWrite(ENA, speed);
-  analogWrite(ENB, speed);
+  analogWrite(ENA, s * 0.45);
+  analogWrite(ENB, s);
 }
 
-void stopCar() {
+ 
+void backwardRight(int s) {
 
   digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
+  digitalWrite(IN2, HIGH);
 
   digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+
+  analogWrite(ENA, s);
+  analogWrite(ENB, s * 0.45);
+}
+
+ // Smooth turning
+ 
+
+void turnLeft(int s) {
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
 
   analogWrite(ENA, 0);
+  analogWrite(ENB, s);
+}
+
+ 
+void turnRight(int s) {
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+
+  analogWrite(ENA, s);
   analogWrite(ENB, 0);
+}
+
+ 
+void stopCar() {
+
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
 }
