@@ -1,4 +1,3 @@
-# face_utils.py
 import numpy as np
 from scipy.spatial import distance as dist
 

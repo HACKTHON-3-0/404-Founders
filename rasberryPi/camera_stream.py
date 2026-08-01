@@ -1,8 +1,3 @@
-# camera_stream.py
-# Wraps either the Pi Camera Module (picamera2) or a USB webcam (cv2)
-# behind one simple .read() / .release() interface, so main.py doesn't
-# need to know which one is in use.
-
 import cv2
 import config
 
